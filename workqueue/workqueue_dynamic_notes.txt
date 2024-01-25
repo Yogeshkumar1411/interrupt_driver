@@ -1,0 +1,53 @@
+Initialize work using Dynamic Method:
+
+	The below call (INIT_WORK) creates a workqueue in Linux by the name work and the function that gets scheduled in the queue is work_fn.
+
+		INIT_WORK(work,work_fn)
+
+Where,
+
+name: The name of the “work_struct” structure that has to be created.
+func: The function to be scheduled in this workqueue.
+Schedule work to the Workqueue
+
+	The below functions used to allocate the work to the queue.
+
+Schedule_work:
+
+	This function puts a job in the kernel-global workqueue if it was not already queued and leaves it in the same position on the kernel-global workqueue otherwise.
+
+		int schedule_work( struct work_struct *work );
+
+where,
+
+work – job to be done
+
+Returns zero if work was already on the kernel-global workqueue and non-zero otherwise.
+
+
+there are many methods like this:
+		Scheduled_delayed_work
+		Schedule_work_on
+		Scheduled_delayed_work_on
+
+
+
+Delete work from workqueue:
+
+	There are also a number of helper functions that you can use to flush or cancel work on work queues. To flush a particular work item and block until the work is complete, you can make a call to flush_work. All work on a given work queue can be completed using a call to . In both cases, the caller blocks until the operation are complete. To flush the kernel-global work queue, call flush_scheduled_work.
+		int flush_work( struct work_struct *work );
+		void flush_scheduled_work( void );
+
+
+Cancel Work from workqueue:
+
+	You can cancel work if it is not already executing in a handler. A call to cancel_work_sync will terminate the work in the queue or block until the callback has finished (if the work is already in progress in the handler). If the work is delayed, you can use a call to cancel_delayed_work_sync.
+		int cancel_work_sync( struct work_struct *work );
+		int cancel_delayed_work_sync( struct delayed_work *dwork );
+
+Check workqueue:
+
+	Finally, you can find out whether a work item is pending (not yet executed by the handler) with a call to work_pending or delayed_work_pending.
+work_pending( work );
+		delayed_work_pending( work );
+

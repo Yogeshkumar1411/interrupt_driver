@@ -1,5 +1,5 @@
 
-obj-m:=workqueue_static.o
+obj-m:=workqueue_dynamic.o
 
 KDIR = /lib/modules/$(shell uname -r)/build/
 
