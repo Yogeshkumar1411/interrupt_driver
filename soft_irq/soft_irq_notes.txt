@@ -1,0 +1,151 @@
+Softirq in Linux Kernel:
+
+	Softirq is also known as a software interrupt request. When we have more work do to in the ISR, we can defer some work to later. So, we do the necessary work in the original ISR (top half) and trigger the softirq. The softirq is rarely used as we have tasklets already. Most of the stuff, we can do using the tasklets. Do you know one thing? Tasklets also built on softirq.
+How to use the softirq in the Linux kernel?
+
+There are some simple steps that we have to follow in order to use this.
+
+    Edit the Linux kernel source code
+    Declare softirq
+    Create the softirq handler
+    Register the softirq with the handler
+    Trigger the softirq
+
+Edit the Linux kernel source code:
+
+	We have to make some changes in the Linux kernel source code to use the softirq.
+	Why do we need to make changes in the Linux Kernel?
+
+	Unlike tasklets, Softirqs are statically allocated at the compile time. So we cannot dynamically create or kill the softirqs. Softirqs are represented using the struct softirq_action which is defined in <linux/interrupt.h>.
+
+	struct softirq_action
+	{
+	  void (*action)(struct softirq_action *);  //softirq handler
+	};
+
+There are only a couple of entries are available in the array to register the softirq.
+
+
+		static struct softirq_action softirq_vec[NR_SOFTIRQS];
+
+	Each registered softirq consumes one entry in the array softirq_vec. Consequently, there can be a maximum of 32 registered softirqs. Note that this cap is fixed the maximum number of registered softirqs cannot be dynamically changed. NR_SOFTIRQS is the last element of the enum. So, a total of 11 softirqs are registered as of now. Please refer to the enum in <linux/interrupt.h>.
+
+enum
+{
+  HI_SOFTIRQ=0,
+  TIMER_SOFTIRQ,
+  NET_TX_SOFTIRQ,
+  NET_RX_SOFTIRQ,
+  BLOCK_SOFTIRQ,
+  IRQ_POLL_SOFTIRQ,
+  TASKLET_SOFTIRQ,
+  SCHED_SOFTIRQ,
+  HRTIMER_SOFTIRQ,
+  RCU_SOFTIRQ,    /* Preferable RCU should always be the last softirq */
+
+  NR_SOFTIRQS
+};
+
+	So, there are a few softirqs that are already defined. If we want to create our own softirq, we need to edit the source code. So, obviously, we have to re-compile the kernel. Not only this, we have to export some APIs too (This will be discussed later in this tutorial).
+
+
+
+Declare the softirq:
+
+
+
+enum
+{
+  HI_SOFTIRQ=0,
+  TIMER_SOFTIRQ,
+  NET_TX_SOFTIRQ,
+  NET_RX_SOFTIRQ,
+  BLOCK_SOFTIRQ,
+  IRQ_POLL_SOFTIRQ,
+  TASKLET_SOFTIRQ,
+  SCHED_SOFTIRQ,
+  HRTIMER_SOFTIRQ,
+  RCU_SOFTIRQ,    /* Preferable RCU should always be the last softirq */
+  TEST_SOFT_IRQ,    /* Manually added soft-irq */
+
+  NR_SOFTIRQS
+};
+
+	
+	In this enum, we have added a new element called TEST_SOFT_IRQ. We can use this enum for our softirq. If you want higher priority softirq, then add the element after HI_SOFTIRQ or even before that.
+
+
+
+
+
+
+
+Create the softirq handler:
+
+	We have to create our own callback function to do our operations in the bottom half. When the kernel runs a softirq handler, it executes this callback function. The callback function should be created like this prototype.
+		void softirq_handler(struct softirq_action *);
+
+
+example:
+/*
+** This function is the softirq handler. We are toggling the LED.
+*/
+static void gpio_interrupt_softirq_handler(struct softirq_action *action)
+{
+  led_toggle = (0x01 ^ led_toggle);                             // toggle the old value
+  gpio_set_value(GPIO_21_OUT, led_toggle);                      // toggle the GPIO_21_OUT
+  pr_info("Interrupt Occurred : GPIO_21_OUT : %d ",gpio_get_value(GPIO_21_OUT));
+}
+
+
+
+Register the softirq with the handler:
+	
+	Till now, we have created the softirq entry and the softirq handler. Now, we have to register the softirq entry with the softirq handler. To do that, use the below API.
+
+		void open_softirq( int nr, void (*action)(struct softirq_action *) );
+
+Where,
+
+nr – Softirq entry. In our case, it should be TEST_SOFT_IRQ .
+
+action– Softirq handler
+
+
+
+
+Trigger the softirq
+
+	We are all set. When we want to call our softirq handler, we have to trigger( raise) the softirq from the ISR. The below API is used to trigger the softirq.
+
+		void raise_softirq(unsigned int nr);
+
+Where,
+
+nr – Softirq entry. In our case, it should be TEST_SOFT_IRQ .
+
+	This API will mark this TEST_SOFT_IRQ as pending. So, the softirq handler will be called when the processor calls do_softirq next time. If the interrupt is already off, then you can use the raise_softirq_irqoff(TEST_SOFT_IRQ) directly instead of raise_softirq(TEST_SOFT_IRQ).
+
+
+
+
+
+
+
+
+
+When will be our softirq handler called?
+
+If we marked the softirq as pending using the raise_softirq or raise_softirq_irqoff, Pending softirqs are checked and executed in the following places.
+
+    In the return from hardware interrupt code (ISR)
+    In the ksoftirqd kernel thread
+    In any code that explicitly checks for and executes pending softirqs, such as the networking subsystem
+
+Points to be noted
+
+    A softirq never preempts another softirq. In fact, the only event that can preempt a softirq is an interrupt handler. Another softirq even the same one can run on another processor, however.
+    Softirqs are reserved for the most timing-critical and important bottom-half processing on the system. If you are adding a new softirq, you normally want to ask yourself why using a tasklet is insufficient. Tasklets are dynamically created and are simpler to use because of their weaker locking requirements, and they still perform quite well. Nonetheless, for timing-critical applications that are able to do their own locking in an efficient way, softirqs might be the correct solution.
+    Softirqs are most often raised from within interrupt handlers.
+
+
