@@ -1,0 +1,165 @@
+Tasklet in Linux Kernel:
+
+	Tasklets are used to queue up work to be done at a later time. Tasklets can be run in parallel, but the same tasklet cannot be run on multiple CPUs at the same time. Also, each tasklet will run only on the CPU that schedules it, to optimize cache usage. Since the thread that queued up the tasklet must complete before it can run the tasklet, race conditions are naturally avoided. However, this arrangement can be suboptimal, as other potentially idle CPUs cannot be used to run the tasklet.
+
+
+	In short, a tasklet in linux is something like a very small thread that has neither stack nor context of its own. Such “threads” work quickly and completely.
+
+Points To Remember:
+
+	
+   -> Tasklets are atomic, so we cannot use sleep() and such synchronization primitives as mutexes, semaphores, etc. from them. But we can use spinlock.
+   -> A tasklet only runs on the same core (CPU) that schedules it.
+   -> Different tasklets can be running in parallel. But at the same time, a tasklet cannot be called concurrently with itself, as it runs on one CPU only.
+   -> Tasklets are executed by the principle of non-preemptive scheduling, one by one, in turn. We can schedule them with two different priorities: normal and high.
+
+Tasklet Structure:
+
+	This is the important data structure for the tasklet.
+
+
+	struct tasklet_struct
+	{
+	    struct tasklet_struct *next;  
+	    unsigned long state;         
+	    atomic_t count;               
+	    void (*func)(unsigned long); 
+	    unsigned long data;           
+	};
+
+Here,
+
+next – The next tasklet in line for scheduling.
+
+state – This state denotes Tasklet’s State. TASKLET_STATE_SCHED (Scheduled) or TASKLET_STATE_RUN (Running).
+
+count – It holds a nonzero value if the tasklet is disabled and 0 if it is enabled.
+
+func –  This is the main function of the tasklet. Pointer to the function that needs to schedule for execution at a later time.
+
+data –  Data to be passed to the function “func“.
+
+
+DECLARE_TASKLET:
+
+	This macro used to create the tasklet structure and assigns the parameters to that structure.
+
+	If we are using this macro then the tasklet will be in the enabled state.
+
+		DECLARE_TASKLET(name, func, data);
+
+name – name of the structure to be created.
+
+func – This is the main function of the tasklet. Pointer to the function that needs to schedule for execution at a later time.
+
+data – Data to be passed to the function “func“.
+
+
+	e.g.,	DECLARE_TASKLET(tasklet,tasklet_fn, 1);
+
+Now we will see how the macro is working. When I call the macro like above, first it creates a tasklet structure with the name of tasklet. Then it assigns the parameter to that structure. It will be looks like below.
+
+
+	struct tasklet_struct tasklet = { NULL, 0, 0, tasklet_fn, 1 };
+
+                      (or)
+
+	struct tasklet_struct tasklet;
+	tasklet.next = NULL;
+	taklet.state = TASKLET_STATE_SCHED;  //Tasklet state is scheduled
+	tasklet.count = 0;                   //taskelet enabled
+	tasklet.func = tasklet_fn;           //function
+	tasklet.data = 1;                    //data arg
+
+
+DECLARE_TASKLET_DISABLED:
+
+	The tasklet can be declared and set at a disabled state, which means that the tasklet can be scheduled, but will not run until the tasklet is specifically enabled. You need to use tasklet_enable to enable.
+
+		DECLARE_TASKLET_DISABLED(name, func, data);
+
+name – name of the structure to be created.
+
+func – This is the main function of the tasklet. Pointer to the function that needs to schedule for execution at a later time.
+
+data – Data to be passed to the function “func“.
+
+
+
+Enable and Disable Tasklet:
+tasklet_enable:
+
+	This used to enable the tasklet.
+
+		void tasklet_enable(struct tasklet_struct *t);
+
+t – pointer to the tasklet struct
+
+
+
+
+tasklet_disable:
+
+	This used to disable the tasklet wait for the completion of the tasklet’s operation.
+
+		void tasklet_disable(struct tasklet_struct *t);
+
+t – pointer to the tasklet struct
+
+
+
+
+
+
+tasklet_schedule:
+
+	Schedule a tasklet with a normal priority. If a tasklet has previously been scheduled (but not yet run), the new schedule will be silently discarded.
+
+		void tasklet_schedule (struct tasklet_struct *t);
+
+t – pointer to the tasklet struct
+
+
+
+		/*Scheduling Task to Tasklet*/
+		tasklet_schedule(&tasklet);
+
+
+
+tasklet_kill:
+	This will wait for its completion and then kill it.
+
+		void tasklet_kill( struct tasklet_struct *t );
+
+t– pointer to the tasklet struct
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Declaring a tasklet
+
+    Dynamically:
+
+void tasklet_init(struct tasklet_struct *t, 
+          void (*func)(unsigned long), unsigned long data); 
+
+    Statically:
+
+DECLARE_TASKLET( tasklet_example, tasklet_function, tasklet_data ); 
+DECLARE_TASKLET_DISABLED(name, func, data); 
+
+There is one difference between the two functions: the former creates a tasklet already enabled and ready to be scheduled without any other function call, done by setting the count field to 0, whereas the latter creates a tasklet disabled (done by setting count to 1), on which you have to call tasklet_enable() before the tasklet can be schedulable:
+
+#define DECLARE_TASKLET(name, func, data) \ struct tasklet_struct name = { NULL, 0, ATOMIC_INIT(0), func, data } #define DECLARE_TASKLET_DISABLED(name, ...
+
+
