@@ -7,6 +7,7 @@
 #include<linux/uaccess.h>
 #include<linux/interrupt.h>
 #include<linux/slab.h>
+#include<linux/workqueue.h>
 
 #define DEV_MEM_SIZE 512  // limit of this driver
 
