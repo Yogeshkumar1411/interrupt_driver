@@ -1,0 +1,35 @@
+Dynamically Creation of Tasklet:
+tasklet_init:
+	This function used to Initialize the tasklet dynamically.
+
+	void tasklet_init( struct tasklet_struct *t,void(*)(unsigned long) func,unsigned long data)
+
+Where,
+
+t – tasklet struct that should be initialized
+
+func – This is the main function of the tasklet. Pointer to the function that needs to schedule for execution at a later time.
+
+data – Data to be passed to the function “func”.
+
+
+exmaple:
+	/* Tasklet by Dynamic Method */
+	struct tasklet_struct *tasklet;
+
+	/* Init the tasklet bt Dynamic Method */
+	tasklet  = kmalloc(sizeof(struct tasklet_struct),GFP_KERNEL);
+	if(tasklet == NULL) {
+	    printk(KERN_INFO "etx_device: cannot allocate Memory");
+	}
+
+	tasklet_init(tasklet,tasklet_fn,0);
+
+
+Now we will see how the function is working in the background. When I call the function like above, it assigns the parameter to the passed tasklet structure. It will be looks like below.
+
+
+	tasklet->func = tasklet_fn;             //function
+	tasklet->data = 0;                      //data arg
+	tasklet->state = TASKLET_STATE_SCHED;  //Tasklet state is scheduled
+	atomic_set(&tasklet->count, 0);        //taskelet enabled

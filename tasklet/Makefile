@@ -1,5 +1,5 @@
 
-obj-m:=tasklet_static.o
+obj-m:=tasklet_dynamic.o
 
 KDIR = /lib/modules/$(shell uname -r)/build/
 
